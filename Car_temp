@@ -1,0 +1,100 @@
+/*
+  Sketch 10.1.1
+  Detect the temperature
+
+  modified 2016/5/13
+  by http://www.freenove.com
+*/
+#include <Servo.h>
+#include <dht.h>
+#include<LiquidCrystal.h>
+
+Servo myservo;
+
+LiquidCrystal lcd(12,10,7,6,5,4);
+String words;
+
+dht DHT;
+#define DHT11_PIN 4
+
+int pos = 0;
+int servoPin = 3;
+
+void setup() {
+  myservo.attach(servoPin);
+  Serial.begin(9600);                 // Initialize the serial port, set the baud rate into 9600
+  Serial.println("UNO is ready!");    // Print the string "UNO is ready!"
+}
+
+void loop() {
+  int adcVal = analogRead(A0);
+  int potPin = analogRead(A5);
+  int chk = DHT.read11(DHT11_PIN);
+  
+  // Calculate voltage
+  float v = adcVal * 5.0 / 1024;
+  // Calculate resistance value of thermistor
+  float Rt = 10 * v / (5 - v);
+  // Calculate temperature (Kelvin)
+  float tempK = 1 / (log(Rt / 10) / 3950 + 1 / (273.15 + 25));
+  // Calculate temperature (Celsius)
+  float tempC = tempK - 273.15;
+  //Calculate temperature (F)
+  int cabin_temp = 1.8 * (tempK - 273) + 32;
+  
+  int desired_temp = map(potPin, 0, 1023, 50, 100);//convert pot. values from 50F to 100F
+  int val = map(potPin, 0, 1023, 0, 180);//convert pot. values from 50F to 100F
+  
+  delay(20);
+  int vent_temp = DHT.temperature * 1.8 + 32;;
+
+    int difference_temp = cabin_temp - desired_temp;
+
+  // Send the result to computer through serial port
+  Serial.print("Current temperature is: ");
+  Serial.print(cabin_temp);
+  Serial.print(" Cabin F");
+  //Serial.print(", DHT11 Temp: ");
+  //Serial.print(vent_temp);
+  Serial.print(",different temp: ");
+  Serial.print(difference_temp);
+  Serial.print(", Angle (pot):");
+  Serial.print(potPin);
+  Serial.print(", Aimed Temperature: ");
+  Serial.println(desired_temp);
+
+
+  //myservo.write(val);
+  
+  if( difference_temp < 3 && difference_temp > -3)
+  {        
+    myservo.write(90);
+  }
+  else if( difference_temp < -15 )//cabin temp is colder than desired
+  {
+    myservo.write(180);
+  }
+  else if(difference_temp > 15 )//cabin temp is warmer than desired
+  {
+    myservo.write(0);
+  }
+  else
+  {
+    int custom_angle = difference_temp*10;
+    custom_angle = map(custom_angle, -150, 150, 180, 0);
+    myservo.write(custom_angle);
+  }
+  delay(15);
+    lcd.begin(16,2);
+    lcd.setCursor(0,0);
+    lcd.print("Cabin Temp: ");lcd.print(cabin_temp);
+    lcd.setCursor(0,1);
+    if(difference_temp < 0){
+          lcd.print("Heat to ");lcd.print(desired_temp);
+    }
+    else{
+          lcd.print("Cool to ");lcd.print(desired_temp);
+    }
+    delay(250);
+    //lcd.clear();
+}
