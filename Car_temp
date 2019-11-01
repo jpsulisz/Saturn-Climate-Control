@@ -92,8 +92,12 @@ void loop() {
     if(difference_temp < 0){
           lcd.print("Heat to ");lcd.print(desired_temp);
     }
-    else{
+    else if (difference_temp < 0){
           lcd.print("Cool to ");lcd.print(desired_temp);
+    }
+    else
+    {
+        lcd.print("Stay at ");lcd.print(desired_temp);
     }
     delay(250);
     //lcd.clear();
