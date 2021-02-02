@@ -1,16 +1,20 @@
 // Task setup
 // 1 : COMPLETE : take care of buttons + LEDS
 // 2 : encoder + motor
-// 3 : temperature changing 2
+// 3 : COMPLETE : temperature changing 2
 // 4 : screen
 
+#include <Encoder.h>
 #include <EEPROM.h>
 #include <JC_Button.h>
+#include <DHT.h>
+
+// BEGIN OF BUTTONS + LEDS INIT
 
 // init of hardwired components
 
-const int button_1 = 2;
-const int button_2 = 3;
+const int button_1 = 5;
+const int button_2 = 13;
 const int button_3 = 4;
 
 const int led_b1 = 6;
@@ -28,6 +32,26 @@ ToggleButton
   button_2_toggle(button_2),
   button_3_toggle(button_3);
 
+// END OF BUTTONS + LEDS INIT
+// BEGIN OF ENCODER + MOTOR
+
+#define CLK 2
+#define DT 3
+#define SW 999
+
+long oldRotaryPos = 0;
+int oldButtonPos = -1;
+
+Encoder encoder(CLK, DT);
+
+// END OF ENCODER + MOTOR
+// BEGIN TEMPERATURE SENSORS
+
+#define DHTTYPE DHT11
+#define DHTPIN 9
+DHT dht(DHTPIN, DHTTYPE);
+
+// END TEMPERATURE SENSORS
 void setup() {
   //init serial communication at 9600 bits per second:
   Serial.begin(9600);
@@ -52,10 +76,20 @@ void setup() {
   button_1_toggle.begin();
   button_2_toggle.begin();
   button_3_toggle.begin();
+  //Begin temperature sensor
+  dht.begin();
 }
 
 void loop() {
   button_read();
+  encoder_read();
+  temperature_read();
+}
+
+void temperature_read(){
+  if(! isnan(dht.readTemperature())){
+    //Serial.println(dht.computeHeatIndex(dht.readTemperature(true), dht.readHumidity()));
+  }
 }
 
 void button_read() {
@@ -127,25 +161,54 @@ void button_read() {
   
   previous_button = EEPROM.read(0);
   
-  if(previous_button == 0){
-    digitalWrite(led_b1, HIGH);
-    digitalWrite(led_b2, LOW);
-    digitalWrite(led_b3, LOW);
-  }else if (previous_button == 1){
-    digitalWrite(led_b1, LOW);
-    digitalWrite(led_b2, HIGH);
-    digitalWrite(led_b3, LOW);
-  }else if (previous_button == 2){
-    digitalWrite(led_b1, LOW);
-    digitalWrite(led_b2, LOW);
-    digitalWrite(led_b3, HIGH);
-  } else if (previous_button == 3){
-    digitalWrite(led_b1, HIGH);
-    digitalWrite(led_b2, HIGH);
-    digitalWrite(led_b3, LOW);
-  }else if (previous_button == 4){
-    digitalWrite(led_b1, LOW);
-    digitalWrite(led_b2, HIGH);
-    digitalWrite(led_b3, HIGH);
+  if(oldButtonPos != previous_button){
+    if(previous_button == 0){
+      Serial.println("User fan control: 0 [Torso]");
+      digitalWrite(led_b1, HIGH);
+      digitalWrite(led_b2, LOW);
+      digitalWrite(led_b3, LOW);
+    }else if (previous_button == 1){
+      Serial.println("User fan control: 1 [Leg]");
+      digitalWrite(led_b1, LOW);
+      digitalWrite(led_b2, HIGH);
+      digitalWrite(led_b3, LOW);
+    }else if (previous_button == 2){
+      Serial.println("User fan control: 2 [Windshield]");
+      digitalWrite(led_b1, LOW);
+      digitalWrite(led_b2, LOW);
+      digitalWrite(led_b3, HIGH);
+    } else if (previous_button == 3){
+      Serial.println("User fan control: 3 [Leg and torso]");
+      digitalWrite(led_b1, HIGH);
+      digitalWrite(led_b2, HIGH);
+      digitalWrite(led_b3, LOW);
+    }else if (previous_button == 4){
+      Serial.println("User fan control: 4 [Windshield and leg]");
+      digitalWrite(led_b1, LOW);
+      digitalWrite(led_b2, HIGH);
+      digitalWrite(led_b3, HIGH);
+    }
+    oldButtonPos = previous_button;
+  }
+}
+
+void encoder_read() {
+  /*
+   * Each 'click' is 4 positions
+   */
+  int user_temperature = EEPROM.read(1); // reads stored temperature
+  long newRotaryPos = encoder.read() / 4; //divide by 4 to fix encoder skipping 4 per click
+  if(newRotaryPos != oldRotaryPos){
+    Serial.print("User temperature now set to: ");Serial.println(user_temperature);
+    if((newRotaryPos > oldRotaryPos)&&(user_temperature>10)){
+      user_temperature = user_temperature - 1;
+    }else if (user_temperature<100){
+      user_temperature = user_temperature + 1;
+    }
+    if(user_temperature>100 || user_temperature<10){
+      user_temperature = 70;
+    }
+    EEPROM.put(1, user_temperature);
+    oldRotaryPos = newRotaryPos;
   }
 }
