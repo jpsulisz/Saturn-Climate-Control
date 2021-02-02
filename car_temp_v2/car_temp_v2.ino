@@ -1,6 +1,6 @@
 // Task setup
 // 1 : COMPLETE : take care of buttons + LEDS
-// 2 : encoder + motor
+// 2 : COMPLETE : encoder + motor
 // 3 : COMPLETE : temperature changing 2
 // 4 : screen
 
@@ -8,6 +8,7 @@
 #include <EEPROM.h>
 #include <JC_Button.h>
 #include <DHT.h>
+#include <Servo.h>
 
 // BEGIN OF BUTTONS + LEDS INIT
 
@@ -51,7 +52,15 @@ Encoder encoder(CLK, DT);
 #define DHTPIN 9
 DHT dht(DHTPIN, DHTTYPE);
 
+int current_temp_1;
 // END TEMPERATURE SENSORS
+// BEGIN SERVOs
+Servo ServoFan;
+Servo ServoTemp;
+//#define ServoFan 11
+//#define ServoTemp 10
+
+// END SERVOs
 void setup() {
   //init serial communication at 9600 bits per second:
   Serial.begin(9600);
@@ -78,17 +87,49 @@ void setup() {
   button_3_toggle.begin();
   //Begin temperature sensor
   dht.begin();
+  //Attach servos
+  ServoFan.attach(11);
+  ServoTemp.attach(10);
 }
 
 void loop() {
   button_read();
   encoder_read();
   temperature_read();
+  servo_control();
+}
+
+void servo_control(){
+  /*
+   * Writes info for Fan position and temperature
+   */
+  //ServoFan.write(0);
+  //ServoTemp.write(0);
+  //Begin Fan position control
+  int previous_button = EEPROM.read(0); // reads on startup
+  int fan_angle [5] = {0, 50, 100, 140, 180};
+  ServoFan.write(fan_angle[previous_button]);
+  //Begin temp position control
+  int desired_temp = EEPROM.read(1);
+  int diff_temp = current_temp_1 - desired_temp;
+  //Serial.println(current_temp_1);
+  if(diff_temp < 2 && diff_temp > 2){ // no difference, set at middle
+    ServoTemp.write(90);
+  }else if(diff_temp < -6){
+    ServoTemp.write(180);
+  }else if(diff_temp > 6){
+    ServoTemp.write(0);
+  }else{
+    int custom_angle = diff_temp*10;
+    custom_angle = map(custom_angle, -150, 150, 180, 0);
+    ServoTemp.write(custom_angle);
+  }
 }
 
 void temperature_read(){
   if(! isnan(dht.readTemperature())){
-    //Serial.println(dht.computeHeatIndex(dht.readTemperature(true), dht.readHumidity()));
+    //Serial.println(dht.readTemperature(true));dht.computeHeatIndex(dht.readTemperature(true), dht.readHumidity());
+    current_temp_1 = dht.readTemperature(true);
   }
 }
 
