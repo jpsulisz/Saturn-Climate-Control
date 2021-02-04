@@ -45,6 +45,29 @@ ToggleButton
 long oldRotaryPos = 0;
 int oldButtonPos = -1;
 
+Encoder encoder(CLK, DT);
+
+// END OF ENCODER + MOTOR
+// BEGIN TEMPERATURE SENSORS
+
+//According to my 98 Dealer Manuals - these are the best ideal temps from the right vent
+#define max_temp 100
+#define min_temp 40
+
+#define DHTTYPE DHT11
+#define DHTPIN 9
+DHT dht(DHTPIN, DHTTYPE);
+
+int current_temp_1;
+// END TEMPERATURE SENSORS
+// BEGIN SERVOs
+Servo ServoFan;
+Servo ServoTemp;
+//#define ServoFan 11
+//#define ServoTemp 10
+// END SERVOs
+// BEGIN SCREEN
+
 const unsigned char Window_IMG [] PROGMEM = {
   // '3_windowvent, 64x64px
   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 
@@ -223,33 +246,12 @@ const unsigned char IMG4 [] PROGMEM = {
 };
 
 
-Encoder encoder(CLK, DT);
-
-// END OF ENCODER + MOTOR
-// BEGIN TEMPERATURE SENSORS
-
-#define DHTTYPE DHT11
-#define DHTPIN 9
-DHT dht(DHTPIN, DHTTYPE);
-
-int current_temp_1;
-// END TEMPERATURE SENSORS
-// BEGIN SERVOs
-Servo ServoFan;
-Servo ServoTemp;
-//#define ServoFan 11
-//#define ServoTemp 10
-// END SERVOs
-// BEGIN SCREEN
-
 #define SCREEN_WIDTH 128 // OLED display width, in pixels
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 
 // Declaration for an SSD1306 display connected to I2C (SDA, SCL pins)
 #define OLED_RESET     4 // Reset pin # (or -1 if sharing Arduino reset pin)
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
-
-#define NUMFLAKES     10 // Number of snowflakes in the animation example
 
 #define LOGO_HEIGHT   16
 #define LOGO_WIDTH    16
@@ -323,9 +325,9 @@ void screen_display(){
     display.setTextSize(3);
     display.setTextColor(WHITE);
     display.setCursor(5,20);
-    if(desired_temp == 100){
+    if(desired_temp == max_temp){
       display.println("HOT");
-    }else if(desired_temp == 10){
+    }else if(desired_temp == min_temp){
       display.println("CHL");
     }else{
       display.print(desired_temp);display.println((char)247);
@@ -490,12 +492,12 @@ void encoder_read() {
   int user_temperature = EEPROM.read(1); // reads stored temperature
   long newRotaryPos = encoder.read() / 4; //divide by 4 to fix encoder skipping 4 per click
   if(newRotaryPos != oldRotaryPos){
-    if((newRotaryPos > oldRotaryPos)&&(user_temperature>10)){
+    if((newRotaryPos > oldRotaryPos)&&(user_temperature>min_temp)){
       user_temperature = user_temperature - 1;
-    }else if (user_temperature<100){
+    }else if (user_temperature<max_temp){
       user_temperature = user_temperature + 1;
     }
-    if(user_temperature>100 || user_temperature<10){
+    if(user_temperature>max_temp || user_temperature<min_temp){
       user_temperature = 70;
     }
     EEPROM.put(1, user_temperature);
